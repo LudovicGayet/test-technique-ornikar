@@ -1,0 +1,21 @@
+{
+  
+  // Handle default terminal
+  "terminal.integrated.profiles.osx": {
+    "zsh": {
+      "path": "zsh"
+    },
+    "bash": null
+  },
+  "terminal.integrated.defaultProfile.linux": "zsh",
+  "terminal.integrated.fontFamily": "MesloLGS NF",
+
+  // Customize Theme and icons
+  "workbench.colorTheme": "Material Theme Darker",
+  "material-icon-theme.saturation": 0.7,
+  "material-icon-theme.icon": 0.7,
+
+  // PYTHON
+  "python.defaultInterpreterPath": "/Users/ludo/Library/Caches/pypoetry/virtualenvs/test-technique-ornikar-bD0KALzu-py3.8/bin/python",
+  "python.terminal.executeInFileDir": true
+}
