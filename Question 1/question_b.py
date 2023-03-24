@@ -1,6 +1,6 @@
 import click
 import os
-from typing import List
+from typing import List, Iterable
 import datetime
 from abc import ABC, abstractmethod
 
@@ -8,17 +8,29 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 from pydantic import BaseModel
 
-from dependency_injector import containers, providers
-
 GCP_PROJECT = "test-data-engineer-090621"
 DATE_FORMAT = "%Y-%m-%d"
 
 
 class PartenariatInformationRepository(ABC):
+    """
+    Classe abstraite pour la gestion de la source de donnée qui contient les informations de partenariat
+    """
+
     @abstractmethod
     def compute_nombre_lecon_par_departement(
-        self, type_partenariat:str, date_debut:str, date_fin:str
-    ) -> dict:
+        self, type_partenariat: str, date_debut: str, date_fin: str
+    ) -> Iterable:
+        """calcul le nombre de lecon par departement pour un partenariat et une plage de temps donnée
+
+        Args:
+            type_partenariat (str): type de partenariat
+            date_debut (str): date_debut
+            date_fin (str): date_fin
+
+        Returns:
+            Iterable: iterable contenant un dictionnaire par partenariat et departement
+        """
         pass
 
 
@@ -30,14 +42,28 @@ class Partenariat(BaseModel):
         date_debut: str,
         date_fin: str,
         repository: PartenariatInformationRepository,
-    ) -> dict:
+    ) -> Iterable:
+        """calcul le nombre de lecon par departement pour ce partenariat sur une plage de temps donnée
+
+        Args:
+            date_debut (str): date_debut
+            date_fin (str): date_fin
+            repository (PartenariatInformationRepository): source de donnée qui contient les informations de partenariat
+
+        Returns:
+            Iterable: iterable contenant un dictionnaire par partenariat et departement
+        """
         return repository.compute_nombre_lecon_par_departement(
             type_partenariat=self.type, date_debut=date_debut, date_fin=date_fin
         )
 
 
 class InMemoryPartenariatInformationRepository(PartenariatInformationRepository):
-    def __init__(self):
+    """
+    Implémentation local de la DB qui contient les informations de partenariat, utile pour les tests
+    """
+
+    def __init__(self, *args, **kwargs):
         self.data = [
             {"partnership_type": "EIRL", "departement": 70, "number_of_lessons": 1},
             {"partnership_type": "EIRL", "departement": 71, "number_of_lessons": 2},
@@ -47,19 +73,25 @@ class InMemoryPartenariatInformationRepository(PartenariatInformationRepository)
             {"partnership_type": "EI", "departement": 75, "number_of_lessons": 6},
         ]
 
-    def compute_nombre_lecon_par_departement(self, type_partenariat:str, date_debut:str, date_fin:str) -> dict:
+    def compute_nombre_lecon_par_departement(
+        self, type_partenariat: str, date_debut: str, date_fin: str
+    ) -> Iterable:
         for dictionnary in self.data:
             if dictionnary.get("partnership_type") == type_partenariat:
                 yield dictionnary
 
 
 class BigQueryPartenariatInformationRepository(PartenariatInformationRepository):
+    """
+    Implémentation Bigquery de la DB qui contient les informations de partenariat
+    """
+
     def __init__(self, bigquery_client: bigquery.Client):
         self.bigquery_client = bigquery_client
 
     def compute_nombre_lecon_par_departement(
-        self, type_partenariat:str, date_debut:str, date_fin:str
-    ) -> dict:
+        self, type_partenariat: str, date_debut: str, date_fin: str
+    ) -> Iterable:
         query_job = self.bigquery_client.query(
             f"""
                 WITH extract_lecon_effectuees AS (
@@ -115,8 +147,6 @@ class BigQueryPartenariatInformationRepository(PartenariatInformationRepository)
         for result in results:
             yield dict(result)
 
-class Container(containers.DeclarativeContainer):
-    partenariat_information = providers.Singleton(BigQueryPartenariatInformationRepository)
 
 @click.command()
 @click.option(
@@ -141,12 +171,12 @@ class Container(containers.DeclarativeContainer):
     type=str,
     help=f"Date fin au format {DATE_FORMAT})",
 )
-def get_nombre_lecon_par_departement_selon_partenariat(
+def cli(
     partnership_type: List[str],
     date_debut: str,
     date_fin: str,
 ):
-    f"""Fonction permettant de récupérer le nombre de leçons par département en fonction du type de partenariat
+    f"""CLI permettant de récupérer le nombre de leçons par département en fonction du type de partenariat
 
     Args:
         partnership_type (List[str]): Limit response number of the request
@@ -169,20 +199,17 @@ def get_nombre_lecon_par_departement_selon_partenariat(
         )
     )
 
+    results = list()
     for type in partnership_type:
-        print(f"Partenariat {type}")
         partenariat = Partenariat(type=type)
-        print(
-            [
-                info
-                for info in partenariat.get_nombre_lecon_par_departement(
-                    date_debut=date_debut,
-                    date_fin=date_fin,
-                    repository=partenariat_repository,
-                )
-            ]
+        iterator = partenariat.get_nombre_lecon_par_departement(
+            date_debut=date_debut, date_fin=date_fin, repository=partenariat_repository
         )
+        for dictionnary in iterator:
+            results.append(dictionnary)
+    print(results)
+    return results
 
 
 if __name__ == "__main__":
-    get_nombre_lecon_par_departement_selon_partenariat()
+    cli()

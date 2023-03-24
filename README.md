@@ -7,12 +7,13 @@ Le fichier est aggrémenté de commentaires qui complètent le code
 
 ### B
 
+_Nécessite l'installation du package manager poetry_
+
 Dans cette question j'ai supposé que le département associé à un meeting point était pré-calculé en amont et disponible dans la table `meeting_points`.
 Pour que le code fonctionne j'associe un meeting point à un departement de manière aléatoire : `SELECT CAST(ROUND(75 + RAND() * (75 - 80)) AS INT64) AS departement`
 
 Cela pour plusieurs raison :
 - C'est une donnée stable dans le temps donc probablement qu'on peut se satisfaire de la calculer une seule fois, à l'ingestion et de l'update au besoin
-- La nature du besoin implique probablement un notion de fraicheur de donnée quotidienne. Donc on peut imaginer un job qui calcule de departement d'un meeting point avant qu'on execute ce script
 - Diminution des performances (Rate-limit de l'API, indisponibilitié, temps de réponse) si calcul à la volée pour chaque requête
 
 Voici quelques pistes sur comment on pourrait extraire le département à partir de la latitude/longitude :
@@ -33,7 +34,7 @@ Aujourd'hui mon script s'appuie sur les capacités de calcul de Bigquery, donc 1
 En revanche on peut jouer sur les coûts et donc la quantité de donnée lue en clusterisant par "type" et en partitionant par "lesson_start_at".
 
 En revanche mon script ne gère pas la réconciliation d'un meeting point avec un département.
-Cette étape peut-être faite lors de la pipeline d'ingestion de donnée qui abouti à la table `meeting_point`
+Cette étape peut-être faite lors de la pipeline d'ingestion de donnée qui abouti à la table `meeting_point`. Le fait d'avoir 1000 créneaux par seconde rajoute des inconnues (rate-limit de l'API?), parallélisation du workflow?
 
 ### B
 
